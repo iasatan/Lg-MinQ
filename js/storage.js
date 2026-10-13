@@ -17,17 +17,22 @@ function readJson(key) {
   }
 }
 
-/** @returns {{token: string, country: string, region: string} | null} */
+/** @returns {{token: string, country: string, region: string, workerUrl?: string} | null} */
 export function loadSettings() {
   const settings = readJson(KEYS.settings);
   if (!settings?.token || !settings?.country) return null;
   return { region: 'auto', ...settings };
 }
 
-export function saveSettings({ token, country, region }) {
+export function saveSettings({ token, country, region, workerUrl }) {
   localStorage.setItem(
     KEYS.settings,
-    JSON.stringify({ token: token.trim(), country: country.trim().toUpperCase(), region: region || 'auto' }),
+    JSON.stringify({
+      token: token.trim(),
+      country: country.trim().toUpperCase(),
+      region: region || 'auto',
+      workerUrl: workerUrl ? workerUrl.trim() : undefined,
+    }),
   );
 }
 

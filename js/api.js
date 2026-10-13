@@ -3,6 +3,14 @@
  * Docs: https://smartsolution.developer.lge.com/en/apiManage/thinq_connect
  */
 
+export const DEFAULT_WORKER_URL = 'https://thinq-washer.satanadam.workers.dev';
+
+export const DIRECT_LG_HOSTS = Object.freeze({
+  aic: 'https://api-aic.lgthinq.com', // Americas
+  eic: 'https://api-eic.lgthinq.com', // Europe, Middle East, Africa
+  kic: 'https://api-kic.lgthinq.com', // Asia, Pacific
+});
+
 /**
  * Single place for every LG API endpoint and constant.
  * Change values here if LG moves or renames anything.
@@ -12,11 +20,12 @@ export const LG_API_CONFIG = Object.freeze({
   apiKey: 'v6GFvkweNo7DK7yD3ylIZ9w52aKBU0eJ7wLXkSR3',
   servicePhase: 'OP',
   timeoutMs: 15000,
+  workerUrl: DEFAULT_WORKER_URL,
 
   baseUrls: Object.freeze({
-    aic: 'https://api-aic.lgthinq.com', // Americas
-    eic: 'https://api-eic.lgthinq.com', // Europe, Middle East, Africa
-    kic: 'https://api-kic.lgthinq.com', // Asia, Pacific
+    aic: `${DEFAULT_WORKER_URL}/aic`,
+    eic: `${DEFAULT_WORKER_URL}/eic`,
+    kic: `${DEFAULT_WORKER_URL}/kic`,
   }),
 
   endpoints: Object.freeze({
@@ -71,10 +80,31 @@ export function resolveRegion(country) {
   return LG_API_CONFIG.defaultRegion;
 }
 
+/** Resolves backend base URL for a given region (routes through Worker proxy for CORS). */
+export function resolveBaseUrl(region, customWorkerUrl) {
+  let workerBase = customWorkerUrl !== undefined ? customWorkerUrl : DEFAULT_WORKER_URL;
+
+  // If accessed directly from the Cloudflare Worker origin, use same-origin relative URL
+  if (
+    !customWorkerUrl &&
+    typeof window !== 'undefined' &&
+    window.location?.hostname?.endsWith('.workers.dev')
+  ) {
+    workerBase = window.location.origin;
+  }
+
+  if (workerBase && workerBase !== 'direct') {
+    const base = workerBase.endsWith('/') ? workerBase.slice(0, -1) : workerBase;
+    return `${base}/${region}`;
+  }
+
+  return DIRECT_LG_HOSTS[region] || DIRECT_LG_HOSTS[LG_API_CONFIG.defaultRegion];
+}
+
 /** Must be called before any API function. */
-export function configureApi({ token, country, clientId, region = 'auto' }) {
+export function configureApi({ token, country, clientId, region = 'auto', workerUrl }) {
   const resolved = region && region !== 'auto' ? region : resolveRegion(country);
-  const baseUrl = LG_API_CONFIG.baseUrls[resolved];
+  const baseUrl = resolveBaseUrl(resolved, workerUrl);
   if (!baseUrl) throw new ThinQApiError(`Unknown API region "${resolved}".`, { code: 'CONFIG' });
   session = { token, country: country.toUpperCase(), clientId, baseUrl };
 }
@@ -82,7 +112,7 @@ export function configureApi({ token, country, clientId, region = 'auto' }) {
 /** LG expects a unique 22-char base64url message id per request. */
 function makeMessageId() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return btoa(String.fromCodePoint(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/={1,2}$/, '');
 }
 
 function buildHeaders() {
@@ -101,7 +131,8 @@ function buildHeaders() {
 function toApiError(status, payload) {
   const lgCode = payload?.error?.code ? String(payload.error.code) : null;
   const lgMessage = payload?.error?.message;
-  const suffix = lgMessage ? ` (LG: ${lgMessage}${lgCode ? `, code ${lgCode}` : ''})` : '';
+  const codeText = lgCode ? `, code ${lgCode}` : '';
+  const suffix = lgMessage ? ` (LG: ${lgMessage}${codeText})` : '';
 
   if (status === 401) {
     return new ThinQApiError(`Your Personal Access Token is invalid or has expired.${suffix}`, { status, code: 'INVALID_TOKEN' });

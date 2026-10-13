@@ -71,11 +71,29 @@ Then open `http://localhost:8080`.
 
 All paths are relative, so the app also works from a sub-path. No build step or configuration is needed.
 
-## CORS note
+## Cloudflare Worker Backend & CORS Proxy
 
-The app calls `https://api-*.lgthinq.com` directly from the browser. If LG doesn't send CORS headers for your origin, the browser blocks the requests. The app then shows a "could not reach the LG ThinQ API" error.
+The app includes a Cloudflare Worker backend ([src/index.js](src/index.js) and [wrangler.jsonc](wrangler.jsonc)) that acts as:
+1. **A CORS proxy & API gateway** forwarding requests to the official LG ThinQ Connect APIs (`https://api-*.lgthinq.com`) with complete CORS header handling (`Access-Control-Allow-Origin: *`).
+2. **A static asset host** serving the web app directly from Cloudflare's edge network.
 
-If that happens, the only fix is a small CORS proxy that you control, such as a Cloudflare Worker. Point the `baseUrls` in `LG_API_CONFIG` at the proxy. Don't use public third-party CORS proxies, because your token would pass through them.
+### Deployed Worker URL
+The worker is live at:
+`https://thinq-washer.satanadam.workers.dev`
+
+- **Americas endpoint**: `https://thinq-washer.satanadam.workers.dev/aic/*` &rarr; `https://api-aic.lgthinq.com/*`
+- **Europe / Middle East / Africa**: `https://thinq-washer.satanadam.workers.dev/eic/*` &rarr; `https://api-eic.lgthinq.com/*`
+- **Asia / Pacific**: `https://thinq-washer.satanadam.workers.dev/kic/*` &rarr; `https://api-kic.lgthinq.com/*`
+- **Health check**: `https://thinq-washer.satanadam.workers.dev/health`
+
+You can use the app directly at `https://thinq-washer.satanadam.workers.dev/` or run it from GitHub Pages/locally while pointing the Backend Worker URL in Settings to your worker.
+
+### Deploying / Redeploying
+
+To redeploy changes to the worker or static assets:
+```bash
+npx wrangler deploy
+```
 
 ## Device capability notes
 

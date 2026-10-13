@@ -5,6 +5,7 @@ import {
   getDeviceProfile,
   executeCommand,
   ThinQApiError,
+  DEFAULT_WORKER_URL,
 } from './api.js';
 import * as storage from './storage.js';
 
@@ -78,6 +79,7 @@ const el = {
   toggleTokenBtn: $('toggleTokenBtn'),
   countryInput: $('countryInput'),
   regionSelect: $('regionSelect'),
+  workerUrlInput: $('workerUrlInput'),
   reloadDevicesBtn: $('reloadDevicesBtn'),
   toast: $('toast'),
   toastBody: $('toastBody'),
@@ -247,6 +249,9 @@ function openSettings({ firstRun = false } = {}) {
   el.tokenInput.value = s?.token || '';
   el.countryInput.value = s?.country || '';
   el.regionSelect.value = s?.region || 'auto';
+  if (el.workerUrlInput) {
+    el.workerUrlInput.value = s?.workerUrl ?? DEFAULT_WORKER_URL;
+  }
   el.tokenInput.type = 'password';
   show(el.settingsError, false);
   show(el.settingsCancel, !firstRun);
@@ -275,6 +280,7 @@ async function onSettingsSubmit(event) {
   const token = el.tokenInput.value.trim();
   const country = el.countryInput.value.trim().toUpperCase();
   const region = el.regionSelect.value;
+  const workerUrl = el.workerUrlInput ? (el.workerUrlInput.value.trim() || DEFAULT_WORKER_URL) : DEFAULT_WORKER_URL;
 
   if (!token) return settingsError('Please enter your Personal Access Token.');
   if (!/^[A-Za-z0-9_\-.]{20,}$/.test(token)) {
@@ -285,10 +291,10 @@ async function onSettingsSubmit(event) {
   setSettingsBusy(true);
   try {
     // Validate the token with a real API call before saving it.
-    configureApi({ token, country, region, clientId: storage.getClientId() });
+    configureApi({ token, country, region, workerUrl, clientId: storage.getClientId() });
     const devices = await getDevices();
 
-    storage.saveSettings({ token, country, region });
+    storage.saveSettings({ token, country, region, workerUrl });
     state.settings = storage.loadSettings();
     settingsModal.hide();
     showToast('Connected to LG ThinQ.', 'success');
