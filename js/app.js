@@ -54,6 +54,7 @@ const el = {
   deviceModel: $('deviceModel'),
   onlineBadge: $('onlineBadge'),
   remainingHero: $('remainingHero'),
+  finishTime: $('finishTime'),
   runBadge: $('runBadge'),
   cycleValue: $('cycleValue'),
   remainingValue: $('remainingValue'),
@@ -187,6 +188,11 @@ function formatRemaining(timer) {
   const m = Number(timer.remainMinute ?? 0);
   if (Number.isNaN(h) || Number.isNaN(m)) return null;
   return { hero: `${h}:${String(m).padStart(2, '0')}`, text: h ? `${h} h ${m} min` : `${m} min`, total: h * 60 + m };
+}
+
+function formatFinishTime(totalMinutes, now = new Date()) {
+  const finish = new Date(now.getTime() + totalMinutes * 60_000);
+  return `${String(finish.getHours()).padStart(2, '0')}:${String(finish.getMinutes()).padStart(2, '0')}`;
 }
 
 function classifyRunState(runState) {
@@ -458,6 +464,8 @@ function resetDashboard() {
     node.textContent = '—';
   }
   el.remainingHero.textContent = '--:--';
+  el.finishTime.textContent = '';
+  el.finishTime.classList.add('d-none');
   el.runBadge.className = 'badge fs-6 mt-2 text-bg-secondary';
   el.runBadge.textContent = '—';
   el.lastRefresh.textContent = 'never';
@@ -489,6 +497,9 @@ function renderStatus(entry) {
 
   el.remainingHero.textContent = remaining ? remaining.hero : '--:--';
   el.remainingValue.textContent = remaining && (remaining.total > 0 || ACTIVE_STATES.has(runState)) ? remaining.text : '—';
+  const showFinishTime = ACTIVE_STATES.has(runState) && remaining && Number.isFinite(remaining.total) && remaining.total > 0;
+  el.finishTime.textContent = showFinishTime ? `Estimated finish: ${formatFinishTime(remaining.total)}` : '';
+  el.finishTime.classList.toggle('d-none', !showFinishTime);
 
   // Course / cycle name is model dependent; fall back to the current phase.
   const course = findDeep(entry, /^(course|currentCourse|courseName|washCourse|cycleName)$/i);
