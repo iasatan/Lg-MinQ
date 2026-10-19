@@ -54,6 +54,7 @@ const el = {
   deviceModel: $('deviceModel'),
   onlineBadge: $('onlineBadge'),
   remainingHero: $('remainingHero'),
+  remainingLabel: $('remainingLabel'),
   finishTime: $('finishTime'),
   runBadge: $('runBadge'),
   cycleValue: $('cycleValue'),
@@ -464,6 +465,7 @@ function resetDashboard() {
     node.textContent = '—';
   }
   el.remainingHero.textContent = '--:--';
+  el.remainingLabel.textContent = 'remaining';
   el.finishTime.textContent = '';
   el.finishTime.classList.add('d-none');
   el.runBadge.className = 'badge fs-6 mt-2 text-bg-secondary';
@@ -490,14 +492,22 @@ function renderStatus(entry) {
   const runState = entry?.runState?.currentState;
   const cls = classifyRunState(runState);
   const remaining = formatRemaining(entry?.timer);
+  const delay = formatRemaining({
+    remainHour: entry?.timer?.relativeHourToStop,
+    remainMinute: entry?.timer?.relativeMinuteToStop,
+  });
+  const showDelayEnd = (runState === 'RESERVED' || ACTIVE_STATES.has(runState))
+    && delay && Number.isFinite(delay.total) && delay.total > 0;
 
   el.runBadge.className = `badge fs-6 mt-2 ${cls.badge}`;
   el.runBadge.textContent = cls.label;
   el.stateValue.textContent = cls.label;
 
-  el.remainingHero.textContent = remaining ? remaining.hero : '--:--';
+  const cycleRemaining = remaining ? remaining.hero : '--:--';
+  el.remainingHero.textContent = showDelayEnd ? formatFinishTime(delay.total) : cycleRemaining;
+  el.remainingLabel.textContent = showDelayEnd ? 'Delay end' : 'remaining';
   el.remainingValue.textContent = remaining && (remaining.total > 0 || ACTIVE_STATES.has(runState)) ? remaining.text : '—';
-  const showFinishTime = ACTIVE_STATES.has(runState) && remaining && Number.isFinite(remaining.total) && remaining.total > 0;
+  const showFinishTime = !showDelayEnd && ACTIVE_STATES.has(runState) && remaining && Number.isFinite(remaining.total) && remaining.total > 0;
   el.finishTime.textContent = showFinishTime ? `Estimated finish: ${formatFinishTime(remaining.total)}` : '';
   el.finishTime.classList.toggle('d-none', !showFinishTime);
 
